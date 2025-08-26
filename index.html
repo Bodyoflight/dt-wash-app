@@ -252,7 +252,7 @@
             const authView = document.getElementById('authView');
             const mainAppView = document.getElementById('mainAppView');
             const showLoginBtn = document.getElementById('showLoginBtn');
-            const showSignupBtn = document = document.getElementById('showSignupBtn');
+            const showSignupBtn = document.getElementById('showSignupBtn');
             const loginFormContainer = document.getElementById('loginFormContainer');
             const signupFormContainer = document.getElementById('signupFormContainer');
             const loginForm = document.getElementById('loginForm');
@@ -367,8 +367,8 @@
                     showMessage('Logged in successfully!', false);
                     authStatusMessage.textContent = '';
                 } catch (error) {
-                    authStatusMessage.textContent = `Login failed: ${error.message}`;
-                    authStatusMessage.classList.add('text-red-500');
+                    // Using showMessage for more visible feedback
+                    showMessage(`Login failed: ${error.message}`, true);
                 }
             });
 
@@ -381,8 +381,8 @@
                     showMessage('Account created successfully!', false);
                     authStatusMessage.textContent = '';
                 } catch (error) {
-                    authStatusMessage.textContent = `Signup failed: ${error.message}`;
-                    authStatusMessage.classList.add('text-red-500');
+                    // Using showMessage for more visible feedback
+                    showMessage(`Signup failed: ${error.message}`, true);
                 }
             });
 
