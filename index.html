@@ -242,324 +242,326 @@
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInWithCustomToken, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, orderBy, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variables provided by the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        window.onload = function() {
+            // Global variables provided by the environment
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        // UI Elements
-        const authView = document.getElementById('authView');
-        const mainAppView = document.getElementById('mainAppView');
-        const showLoginBtn = document.getElementById('showLoginBtn');
-        const showSignupBtn = document.getElementById('showSignupBtn');
-        const loginFormContainer = document.getElementById('loginFormContainer');
-        const signupFormContainer = document.getElementById('signupFormContainer');
-        const loginForm = document.getElementById('loginForm');
-        const signupForm = document.getElementById('signupForm');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const authStatusMessage = document.getElementById('authStatusMessage');
-        const forgotPasswordLink = document.getElementById('forgotPasswordLink');
-        const forgotPasswordModal = document.getElementById('forgotPasswordModal');
-        const forgotPasswordForm = document.getElementById('forgotPasswordForm');
-        const cancelResetBtn = document.getElementById('cancelResetBtn');
+            // UI Elements
+            const authView = document.getElementById('authView');
+            const mainAppView = document.getElementById('mainAppView');
+            const showLoginBtn = document.getElementById('showLoginBtn');
+            const showSignupBtn = document = document.getElementById('showSignupBtn');
+            const loginFormContainer = document.getElementById('loginFormContainer');
+            const signupFormContainer = document.getElementById('signupFormContainer');
+            const loginForm = document.getElementById('loginForm');
+            const signupForm = document.getElementById('signupForm');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const authStatusMessage = document.getElementById('authStatusMessage');
+            const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+            const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+            const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+            const cancelResetBtn = document.getElementById('cancelResetBtn');
 
-        const jobForm = document.getElementById('jobForm');
-        const jobTableBody = document.getElementById('jobTableBody');
-        const statusMessage = document.getElementById('statusMessage');
-        const noJobsMessage = document.getElementById('noJobs');
-        const loadingIndicator = document.getElementById('loadingIndicator');
-        const jobTableContainer = document.getElementById('jobTableContainer');
-        const userIdDisplay = document.getElementById('userIdDisplay');
-        const submitButton = document.getElementById('submitButton');
-        const sortBtn = document.getElementById('sortBtn');
-        const messageBox = document.getElementById('messageBox');
-        
-        // New UI Element for clothes list and date
-        const clothesListInput = document.getElementById('clothesList');
-        const jobDateInput = document.getElementById('jobDate');
-
-        let db, auth, userId;
-        const partnerShareRate = 0.20; // 20%
-        const statuses = ['Dropped Off', 'In Progress', 'Ready for Pickup', 'Picked Up'];
-
-        let currentSortOrder = 'desc'; // Default sort order
-
-        // Function to show a message box
-        const showMessage = (message, isError = false) => {
-            messageBox.textContent = message;
-            messageBox.className = 'message-box show ' + (isError ? 'bg-red-500' : 'bg-green-500');
-            setTimeout(() => {
-                messageBox.classList.remove('show');
-            }, 3000);
-        };
-
-        // Function to handle errors
-        const handleFirebaseError = (error) => {
-            console.error("Firebase Error:", error);
-            const errorMessage = `Error: ${error.message}`;
-            showMessage(errorMessage, true);
-        };
-
-        // Initialize Firebase
-        try {
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-            console.log("Firebase initialized successfully.");
-
-            // Initial custom sign-in with provided token
-            if (initialAuthToken) {
-                signInWithCustomToken(auth, initialAuthToken).then(() => {
-                    console.log("Custom auth token sign-in successful.");
-                }).catch(error => {
-                    handleFirebaseError(error);
-                });
-            }
-
-            // Set up authentication listener
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    // User is signed in.
-                    userId = user.uid;
-                    userIdDisplay.textContent = userId;
-                    console.log("User authenticated:", userId);
-                    authView.classList.add('hidden');
-                    mainAppView.classList.remove('hidden');
-
-                    // Start listening for real-time data for the specific user
-                    listenForJobs(userId);
-                } else {
-                    // User is signed out, show auth view
-                    userId = null;
-                    authView.classList.remove('hidden');
-                    mainAppView.classList.add('hidden');
-                    showMessage('Please log in or sign up.', false);
-                }
-            });
-        } catch (e) {
-            handleFirebaseError(e);
-        }
-
-        // Auth form logic
-        showLoginBtn.addEventListener('click', () => {
-            loginFormContainer.classList.remove('hidden');
-            signupFormContainer.classList.add('hidden');
-            showLoginBtn.classList.add('text-blue-500', 'border-blue-500');
-            showSignupBtn.classList.remove('text-blue-500', 'border-blue-500');
-            showSignupBtn.classList.add('text-gray-500');
-        });
-
-        showSignupBtn.addEventListener('click', () => {
-            loginFormContainer.classList.add('hidden');
-            signupFormContainer.classList.remove('hidden');
-            showSignupBtn.classList.add('text-blue-500', 'border-blue-500');
-            showLoginBtn.classList.remove('text-blue-500', 'border-blue-500');
-            showLoginBtn.classList.add('text-gray-500');
-        });
-
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = loginForm.loginEmail.value;
-            const password = loginForm.loginPassword.value;
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-                showMessage('Logged in successfully!', false);
-                authStatusMessage.textContent = '';
-            } catch (error) {
-                authStatusMessage.textContent = `Login failed: ${error.message}`;
-                authStatusMessage.classList.add('text-red-500');
-            }
-        });
-
-        signupForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = signupForm.signupEmail.value;
-            const password = signupForm.signupPassword.value;
-            try {
-                await createUserWithEmailAndPassword(auth, email, password);
-                showMessage('Account created successfully!', false);
-                authStatusMessage.textContent = '';
-            } catch (error) {
-                authStatusMessage.textContent = `Signup failed: ${error.message}`;
-                authStatusMessage.classList.add('text-red-500');
-            }
-        });
-
-        logoutBtn.addEventListener('click', async () => {
-            await signOut(auth);
-            showMessage('Logged out successfully.', false);
-        });
-        
-        // Forgot Password Logic
-        forgotPasswordLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            forgotPasswordModal.classList.remove('hidden');
-        });
-
-        cancelResetBtn.addEventListener('click', () => {
-            forgotPasswordModal.classList.add('hidden');
-            forgotPasswordForm.reset();
-        });
-
-        forgotPasswordForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = forgotPasswordForm.resetEmail.value;
-            try {
-                await sendPasswordResetEmail(auth, email);
-                showMessage('Password reset email sent. Please check your inbox.', false);
-                forgotPasswordModal.classList.add('hidden');
-                forgotPasswordForm.reset();
-            } catch (error) {
-                handleFirebaseError(error);
-            }
-        });
-
-
-        // Function to update job status in Firestore
-        const updateJobStatus = async (docId, newStatus) => {
-            if (!db || !docId || !newStatus || !userId) {
-                console.error("Missing parameters for update or user not authenticated.");
-                return;
-            }
-            try {
-                const jobRef = doc(db, `artifacts/${appId}/users/${userId}/jobs`, docId);
-                await updateDoc(jobRef, { status: newStatus });
-                console.log(`Job ${docId} status updated to ${newStatus}`);
-            } catch (e) {
-                handleFirebaseError(e);
-            }
-        };
-
-        // Function to listen for real-time changes from Firestore
-        const listenForJobs = (currentUserId) => {
-            if (!db || !currentUserId) {
-                console.error("Firestore database not initialized or user not authenticated.");
-                return;
-            }
-            const jobCollectionPath = `artifacts/${appId}/users/${currentUserId}/jobs`;
-            const jobsCollection = collection(db, jobCollectionPath);
-            const q = query(jobsCollection, orderBy('jobDate', 'desc')); // Default query to sort by date descending
-            console.log("Listening for data at:", jobCollectionPath);
-            onSnapshot(q, (querySnapshot) => {
-                const jobs = [];
-                querySnapshot.forEach((doc) => {
-                    jobs.push({ id: doc.id, ...doc.data() });
-                });
-                renderTable(jobs);
-                loadingIndicator.classList.add('hidden');
-                jobTableContainer.classList.remove('hidden');
-            }, handleFirebaseError);
-        };
-        
-        // Function to render the jobs table
-        const renderTable = (jobs) => {
-            jobTableBody.innerHTML = '';
-            if (jobs.length === 0) {
-                noJobsMessage.classList.remove('hidden');
-                return;
-            }
-            noJobsMessage.classList.add('hidden');
-            jobs.forEach(job => {
-                // Formatting the date for display
-                const jobDate = job.jobDate ? job.jobDate : 'N/A';
-                
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${job.jobId}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${jobDate}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${job.customerName}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${job.partnerLocation}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₦${job.orderValue.toLocaleString()}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-700">₦${job.partnerShare.toLocaleString()}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500 max-w-[200px] overflow-hidden text-ellipsis">${job.clothesList || ''}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <select data-doc-id="${job.id}" class="rounded-lg border-gray-300 border p-1 focus:ring-blue-500 focus:border-blue-500">
-                            ${statuses.map(status => `<option value="${status}" ${job.status === status ? 'selected' : ''}>${status}</option>`).join('')}
-                        </select>
-                    </td>
-                `;
-                jobTableBody.appendChild(row);
-            });
-            jobTableBody.querySelectorAll('select').forEach(selectElement => {
-                selectElement.addEventListener('change', (e) => {
-                    const docId = e.target.dataset.docId;
-                    const newStatus = e.target.value;
-                    updateJobStatus(docId, newStatus);
-                });
-            });
-        };
-
-        // Handle form submission
-        jobForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            submitButton.disabled = true;
-
-            const customerName = document.getElementById('customerName').value;
-            const jobDate = document.getElementById('jobDate').value;
-            const partnerLocation = document.getElementById('partnerLocation').value;
-            const orderValue = parseFloat(document.getElementById('orderValue').value);
-            const clothesList = clothesListInput.value;
-
-            if (isNaN(orderValue) || orderValue < 0) {
-                showMessage('Please enter a valid order value.', true);
-                submitButton.disabled = false;
-                return;
-            }
+            const jobForm = document.getElementById('jobForm');
+            const jobTableBody = document.getElementById('jobTableBody');
+            const statusMessage = document.getElementById('statusMessage');
+            const noJobsMessage = document.getElementById('noJobs');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const jobTableContainer = document.getElementById('jobTableContainer');
+            const userIdDisplay = document.getElementById('userIdDisplay');
+            const submitButton = document.getElementById('submitButton');
+            const sortBtn = document.getElementById('sortBtn');
+            const messageBox = document.getElementById('messageBox');
             
-            if (!jobDate) {
-                showMessage('Please select a date for the job.', true);
-                submitButton.disabled = false;
-                return;
-            }
+            // New UI Element for clothes list and date
+            const clothesListInput = document.getElementById('clothesList');
+            const jobDateInput = document.getElementById('jobDate');
 
-            const newJob = {
-                jobId: `DTW-${Date.now()}`,
-                customerName: customerName,
-                jobDate: jobDate,
-                partnerLocation: partnerLocation,
-                orderValue: orderValue,
-                partnerShare: orderValue * partnerShareRate,
-                status: 'Dropped Off',
-                clothesList: clothesList,
-                createdAt: serverTimestamp()
+            let db, auth, userId;
+            const partnerShareRate = 0.20; // 20%
+            const statuses = ['Dropped Off', 'In Progress', 'Ready for Pickup', 'Picked Up'];
+
+            let currentSortOrder = 'desc'; // Default sort order
+
+            // Function to show a message box
+            const showMessage = (message, isError = false) => {
+                messageBox.textContent = message;
+                messageBox.className = 'message-box show ' + (isError ? 'bg-red-500' : 'bg-green-500');
+                setTimeout(() => {
+                    messageBox.classList.remove('show');
+                }, 3000);
             };
 
+            // Function to handle errors
+            const handleFirebaseError = (error) => {
+                console.error("Firebase Error:", error);
+                const errorMessage = `Error: ${error.message}`;
+                showMessage(errorMessage, true);
+            };
+
+            // Initialize Firebase
             try {
-                if (!userId) {
-                    showMessage('You must be logged in to add a job.', true);
-                    return;
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                console.log("Firebase initialized successfully.");
+
+                // Initial custom sign-in with provided token
+                if (initialAuthToken) {
+                    signInWithCustomToken(auth, initialAuthToken).then(() => {
+                        console.log("Custom auth token sign-in successful.");
+                    }).catch(error => {
+                        handleFirebaseError(error);
+                    });
                 }
-                const jobCollectionPath = `artifacts/${appId}/users/${userId}/jobs`;
-                await addDoc(collection(db, jobCollectionPath), newJob);
-                jobForm.reset();
-                showMessage('Job added successfully!', false);
+
+                // Set up authentication listener
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        // User is signed in.
+                        userId = user.uid;
+                        userIdDisplay.textContent = userId;
+                        console.log("User authenticated:", userId);
+                        authView.classList.add('hidden');
+                        mainAppView.classList.remove('hidden');
+
+                        // Start listening for real-time data for the specific user
+                        listenForJobs(userId);
+                    } else {
+                        // User is signed out, show auth view
+                        userId = null;
+                        authView.classList.remove('hidden');
+                        mainAppView.classList.add('hidden');
+                        showMessage('Please log in or sign up.', false);
+                    }
+                });
             } catch (e) {
                 handleFirebaseError(e);
-            } finally {
-                submitButton.disabled = false;
             }
-        });
-        
-        // Sorting logic
-        sortBtn.addEventListener('click', () => {
-            currentSortOrder = currentSortOrder === 'desc' ? 'asc' : 'desc';
-            const sortText = currentSortOrder === 'desc' ? 'Newest First' : 'Oldest First';
-            sortBtn.textContent = `Sort by Date (${sortText})`;
+
+            // Auth form logic
+            showLoginBtn.addEventListener('click', () => {
+                loginFormContainer.classList.remove('hidden');
+                signupFormContainer.classList.add('hidden');
+                showLoginBtn.classList.add('text-blue-500', 'border-blue-500');
+                showSignupBtn.classList.remove('text-blue-500', 'border-blue-500');
+                showSignupBtn.classList.add('text-gray-500');
+            });
+
+            showSignupBtn.addEventListener('click', () => {
+                loginFormContainer.classList.add('hidden');
+                signupFormContainer.classList.remove('hidden');
+                showSignupBtn.classList.add('text-blue-500', 'border-blue-500');
+                showLoginBtn.classList.remove('text-blue-500', 'border-blue-500');
+                showLoginBtn.classList.add('text-gray-500');
+            });
+
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = loginForm.loginEmail.value;
+                const password = loginForm.loginPassword.value;
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    showMessage('Logged in successfully!', false);
+                    authStatusMessage.textContent = '';
+                } catch (error) {
+                    authStatusMessage.textContent = `Login failed: ${error.message}`;
+                    authStatusMessage.classList.add('text-red-500');
+                }
+            });
+
+            signupForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = signupForm.signupEmail.value;
+                const password = signupForm.signupPassword.value;
+                try {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                    showMessage('Account created successfully!', false);
+                    authStatusMessage.textContent = '';
+                } catch (error) {
+                    authStatusMessage.textContent = `Signup failed: ${error.message}`;
+                    authStatusMessage.classList.add('text-red-500');
+                }
+            });
+
+            logoutBtn.addEventListener('click', async () => {
+                await signOut(auth);
+                showMessage('Logged out successfully.', false);
+            });
             
-            // Re-listen with the new sort order
-            if (userId) {
-                const jobCollectionPath = `artifacts/${appId}/users/${userId}/jobs`;
+            // Forgot Password Logic
+            forgotPasswordLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                forgotPasswordModal.classList.remove('hidden');
+            });
+
+            cancelResetBtn.addEventListener('click', () => {
+                forgotPasswordModal.classList.add('hidden');
+                forgotPasswordForm.reset();
+            });
+
+            forgotPasswordForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = forgotPasswordForm.resetEmail.value;
+                try {
+                    await sendPasswordResetEmail(auth, email);
+                    showMessage('Password reset email sent. Please check your inbox.', false);
+                    forgotPasswordModal.classList.add('hidden');
+                    forgotPasswordForm.reset();
+                } catch (error) {
+                    handleFirebaseError(error);
+                }
+            });
+
+
+            // Function to update job status in Firestore
+            const updateJobStatus = async (docId, newStatus) => {
+                if (!db || !docId || !newStatus || !userId) {
+                    console.error("Missing parameters for update or user not authenticated.");
+                    return;
+                }
+                try {
+                    const jobRef = doc(db, `artifacts/${appId}/users/${userId}/jobs`, docId);
+                    await updateDoc(jobRef, { status: newStatus });
+                    console.log(`Job ${docId} status updated to ${newStatus}`);
+                } catch (e) {
+                    handleFirebaseError(e);
+                }
+            };
+
+            // Function to listen for real-time changes from Firestore
+            const listenForJobs = (currentUserId) => {
+                if (!db || !currentUserId) {
+                    console.error("Firestore database not initialized or user not authenticated.");
+                    return;
+                }
+                const jobCollectionPath = `artifacts/${appId}/users/${currentUserId}/jobs`;
                 const jobsCollection = collection(db, jobCollectionPath);
-                const q = query(jobsCollection, orderBy('jobDate', currentSortOrder));
+                const q = query(jobsCollection, orderBy('jobDate', 'desc')); // Default query to sort by date descending
+                console.log("Listening for data at:", jobCollectionPath);
                 onSnapshot(q, (querySnapshot) => {
                     const jobs = [];
                     querySnapshot.forEach((doc) => {
                         jobs.push({ id: doc.id, ...doc.data() });
                     });
                     renderTable(jobs);
+                    loadingIndicator.classList.add('hidden');
+                    jobTableContainer.classList.remove('hidden');
                 }, handleFirebaseError);
-            }
-        });
+            };
+            
+            // Function to render the jobs table
+            const renderTable = (jobs) => {
+                jobTableBody.innerHTML = '';
+                if (jobs.length === 0) {
+                    noJobsMessage.classList.remove('hidden');
+                    return;
+                }
+                noJobsMessage.classList.add('hidden');
+                jobs.forEach(job => {
+                    // Formatting the date for display
+                    const jobDate = job.jobDate ? job.jobDate : 'N/A';
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${job.jobId}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${jobDate}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${job.customerName}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${job.partnerLocation}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₦${job.orderValue.toLocaleString()}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-700">₦${job.partnerShare.toLocaleString()}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500 max-w-[200px] overflow-hidden text-ellipsis">${job.clothesList || ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <select data-doc-id="${job.id}" class="rounded-lg border-gray-300 border p-1 focus:ring-blue-500 focus:border-blue-500">
+                                ${statuses.map(status => `<option value="${status}" ${job.status === status ? 'selected' : ''}>${status}</option>`).join('')}
+                            </select>
+                        </td>
+                    `;
+                    jobTableBody.appendChild(row);
+                });
+                jobTableBody.querySelectorAll('select').forEach(selectElement => {
+                    selectElement.addEventListener('change', (e) => {
+                        const docId = e.target.dataset.docId;
+                        const newStatus = e.target.value;
+                        updateJobStatus(docId, newStatus);
+                    });
+                });
+            };
+
+            // Handle form submission
+            jobForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                submitButton.disabled = true;
+
+                const customerName = document.getElementById('customerName').value;
+                const jobDate = document.getElementById('jobDate').value;
+                const partnerLocation = document.getElementById('partnerLocation').value;
+                const orderValue = parseFloat(document.getElementById('orderValue').value);
+                const clothesList = clothesListInput.value;
+
+                if (isNaN(orderValue) || orderValue < 0) {
+                    showMessage('Please enter a valid order value.', true);
+                    submitButton.disabled = false;
+                    return;
+                }
+                
+                if (!jobDate) {
+                    showMessage('Please select a date for the job.', true);
+                    submitButton.disabled = false;
+                    return;
+                }
+
+                const newJob = {
+                    jobId: `DTW-${Date.now()}`,
+                    customerName: customerName,
+                    jobDate: jobDate,
+                    partnerLocation: partnerLocation,
+                    orderValue: orderValue,
+                    partnerShare: orderValue * partnerShareRate,
+                    status: 'Dropped Off',
+                    clothesList: clothesList,
+                    createdAt: serverTimestamp()
+                };
+
+                try {
+                    if (!userId) {
+                        showMessage('You must be logged in to add a job.', true);
+                        return;
+                    }
+                    const jobCollectionPath = `artifacts/${appId}/users/${userId}/jobs`;
+                    await addDoc(collection(db, jobCollectionPath), newJob);
+                    jobForm.reset();
+                    showMessage('Job added successfully!', false);
+                } catch (e) {
+                    handleFirebaseError(e);
+                } finally {
+                    submitButton.disabled = false;
+                }
+            });
+            
+            // Sorting logic
+            sortBtn.addEventListener('click', () => {
+                currentSortOrder = currentSortOrder === 'desc' ? 'asc' : 'desc';
+                const sortText = currentSortOrder === 'desc' ? 'Newest First' : 'Oldest First';
+                sortBtn.textContent = `Sort by Date (${sortText})`;
+                
+                // Re-listen with the new sort order
+                if (userId) {
+                    const jobCollectionPath = `artifacts/${appId}/users/${userId}/jobs`;
+                    const jobsCollection = collection(db, jobCollectionPath);
+                    const q = query(jobsCollection, orderBy('jobDate', currentSortOrder));
+                    onSnapshot(q, (querySnapshot) => {
+                        const jobs = [];
+                        querySnapshot.forEach((doc) => {
+                            jobs.push({ id: doc.id, ...doc.data() });
+                        });
+                        renderTable(jobs);
+                    }, handleFirebaseError);
+                }
+            });
+        };
     </script>
 </body>
 </html>
